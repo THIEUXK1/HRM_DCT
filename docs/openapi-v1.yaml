@@ -1,0 +1,860 @@
+openapi: 3.0.3
+info:
+  title: HRM API
+  version: 1.0.0
+  description: API reference for HR management resources.
+servers:
+  - url: /api/v1
+paths:
+  /auth/login:
+    post:
+      summary: Login and receive an API token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: OK
+  /auth/me:
+    get:
+      summary: Get current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /auth/logout:
+    post:
+      summary: Logout and revoke API token
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: No Content
+  /auth/rotate:
+    post:
+      summary: Rotate API token for current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+  /companies:
+    get:
+      summary: List companies
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyInput'
+      responses:
+        '201':
+          description: Created
+  /companies/{company}:
+    get:
+      summary: Get a company
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Update a company
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyInput'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete a company
+      parameters:
+        - $ref: '#/components/parameters/CompanyId'
+      responses:
+        '204':
+          description: No Content
+  /branches:
+    get:
+      summary: List branches
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create branch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+      responses:
+        '201':
+          description: Created
+  /branches/{branch}:
+    get:
+      summary: Get a branch
+      parameters:
+        - $ref: '#/components/parameters/BranchId'
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Update a branch
+      parameters:
+        - $ref: '#/components/parameters/BranchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete a branch
+      parameters:
+        - $ref: '#/components/parameters/BranchId'
+      responses:
+        '204':
+          description: No Content
+  /departments:
+    get:
+      summary: List departments
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '201':
+          description: Created
+  /departments/{department}:
+    get:
+      summary: Get a department
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Update a department
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete a department
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      responses:
+        '204':
+          description: No Content
+  /positions:
+    get:
+      summary: List positions
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionInput'
+      responses:
+        '201':
+          description: Created
+  /positions/{position}:
+    get:
+      summary: Get a position
+      parameters:
+        - $ref: '#/components/parameters/PositionId'
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Update a position
+      parameters:
+        - $ref: '#/components/parameters/PositionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionInput'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete a position
+      parameters:
+        - $ref: '#/components/parameters/PositionId'
+      responses:
+        '204':
+          description: No Content
+  /employees:
+    get:
+      summary: List employees
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '201':
+          description: Created
+  /employees/{employee}:
+    get:
+      summary: Get an employee
+      parameters:
+        - $ref: '#/components/parameters/EmployeeId'
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Update an employee
+      parameters:
+        - $ref: '#/components/parameters/EmployeeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete an employee
+      parameters:
+        - $ref: '#/components/parameters/EmployeeId'
+      responses:
+        '204':
+          description: No Content
+  /employment-contracts:
+    get:
+      summary: List employment contracts
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create employment contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmploymentContractInput'
+      responses:
+        '201':
+          description: Created
+  /employment-contracts/{employment_contract}:
+    get:
+      summary: Get an employment contract
+      parameters:
+        - $ref: '#/components/parameters/EmploymentContractId'
+      responses:
+        '200':
+          description: OK
+  /audit-logs:
+    get:
+      summary: List audit logs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  links:
+                    type: object
+                  meta:
+                    type: object
+  /audit-logs/{audit_log}:
+    get:
+      summary: Get an audit log entry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AuditLogId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AuditLog'
+components:
+  parameters:
+    CompanyId:
+      name: company
+      in: path
+      required: true
+      schema:
+        type: integer
+    BranchId:
+      name: branch
+      in: path
+      required: true
+      schema:
+        type: integer
+    DepartmentId:
+      name: department
+      in: path
+      required: true
+      schema:
+        type: integer
+    PositionId:
+      name: position
+      in: path
+      required: true
+      schema:
+        type: integer
+    EmployeeId:
+      name: employee
+      in: path
+      required: true
+      schema:
+        type: integer
+    EmploymentContractId:
+      name: employment_contract
+      in: path
+      required: true
+      schema:
+        type: integer
+    AuditLogId:
+      name: audit_log
+      in: path
+      required: true
+      schema:
+        type: integer
+  schemas:
+    CompanyInput:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        tax_code:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        is_active:
+          type: boolean
+      required:
+        - name
+        - code
+    BranchInput:
+      type: object
+      properties:
+        company_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        address:
+          type: string
+        manager_id:
+          type: integer
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+        - company_id
+        - name
+        - code
+    DepartmentInput:
+      type: object
+      properties:
+        branch_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        manager_id:
+          type: integer
+          nullable: true
+        parent_department_id:
+          type: integer
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+        - branch_id
+        - name
+        - code
+    PositionInput:
+      type: object
+      properties:
+        department_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        level:
+          type: string
+        job_description:
+          type: string
+        is_active:
+          type: boolean
+      required:
+        - department_id
+        - name
+        - code
+    EmployeeInput:
+      type: object
+      properties:
+        company_id:
+          type: integer
+        branch_id:
+          type: integer
+        department_id:
+          type: integer
+        position_id:
+          type: integer
+        employee_code:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        gender:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        hire_date:
+          type: string
+          format: date
+        probation_end_date:
+          type: string
+          format: date
+        employment_status:
+          type: string
+        manager_id:
+          type: integer
+          nullable: true
+        work_email:
+          type: string
+        work_phone:
+          type: string
+        national_id:
+          type: string
+        tax_code:
+          type: string
+        bank_account:
+          type: string
+        bank_name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        note:
+          type: string
+        is_active:
+          type: boolean
+      required:
+        - company_id
+        - employee_code
+        - first_name
+        - last_name
+        - full_name
+        - email
+    EmploymentContractInput:
+      type: object
+      properties:
+        employee_id:
+          type: integer
+        contract_number:
+          type: string
+        contract_type:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        probation_months:
+          type: integer
+        salary_base:
+          type: number
+          format: decimal
+        salary_currency:
+          type: string
+        working_hours:
+          type: string
+        work_schedule:
+          type: string
+        status:
+          type: string
+        file_path:
+          type: string
+      required:
+        - employee_id
+        - contract_number
+        - contract_type
+        - start_date
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        actor_id:
+          type: integer
+          nullable: true
+        actor_name:
+          type: string
+          nullable: true
+        entity_type:
+          type: string
+        entity_id:
+          type: integer
+          nullable: true
+        action:
+          type: string
+        field_name:
+          type: string
+          nullable: true
+        old_value:
+          type: string
+          nullable: true
+        new_value:
+          type: string
+          nullable: true
+        ip_address:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Company:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        tax_code:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Branch:
+      type: object
+      properties:
+        id:
+          type: integer
+        company_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        address:
+          type: string
+          nullable: true
+        manager_id:
+          type: integer
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Department:
+      type: object
+      properties:
+        id:
+          type: integer
+        branch_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        manager_id:
+          type: integer
+          nullable: true
+        parent_department_id:
+          type: integer
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Position:
+      type: object
+      properties:
+        id:
+          type: integer
+        department_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        level:
+          type: string
+          nullable: true
+        job_description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+        company_id:
+          type: integer
+        branch_id:
+          type: integer
+          nullable: true
+        department_id:
+          type: integer
+          nullable: true
+        position_id:
+          type: integer
+          nullable: true
+        employee_code:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        hire_date:
+          type: string
+          format: date
+          nullable: true
+        employment_status:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    EmploymentContract:
+      type: object
+      properties:
+        id:
+          type: integer
+        employee_id:
+          type: integer
+        contract_number:
+          type: string
+        contract_type:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        probation_months:
+          type: integer
+          nullable: true
+        salary_base:
+          type: number
+        salary_currency:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+  examples:
+    CompanyExample:
+      summary: A sample company
+      value:
+        id: 1
+        name: HRM Global
+        code: COMP-001
+        tax_code: HRM2026001
+        address: 123 Main Street, Hanoi
+        phone: "+84 24 1234 5678"
+        email: contact@hrmglobal.local
+        is_active: true
+        created_at: '2026-05-26T12:00:00Z'
+        updated_at: '2026-05-26T12:00:00Z'
+    EmployeeExample:
+      summary: A sample employee
+      value:
+        id: 1
+        company_id: 1
+        branch_id: 1
+        department_id: 1
+        position_id: 1
+        employee_code: EMP-001
+        first_name: Nguyen
+        last_name: An
+        full_name: Nguyen An
+        email: nguyen.an@hrmglobal.local
+        phone: "+84 912 345 678"
+        gender: male
+        hire_date: '2026-05-27'
+        employment_status: active
+        is_active: true
+        created_at: '2026-05-27T08:00:00Z'
+        updated_at: '2026-05-27T08:00:00Z'
+    EmploymentContractExample:
+      summary: A sample contract
+      value:
+        id: 1
+        employee_id: 1
+        contract_number: CTR-001
+        contract_type: Permanent
+        start_date: '2026-05-27'
+        probation_months: 2
+        salary_base: 15000000
+        salary_currency: VND
+        status: active
+        created_at: '2026-05-27T08:00:00Z'
+        updated_at: '2026-05-27T08:00:00Z'
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

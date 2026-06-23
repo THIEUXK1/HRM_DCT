@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hrm_app
+    restart: always
+    working_dir: /var/www/hrm
+    volumes:
+      - .:/var/www/hrm
+    networks:
+      - hrm_network
+    depends_on:
+      - db
+
+  web:
+    image: nginx:alpine
+    container_name: hrm_web
+    restart: always
+    ports:
+      - '80:80'
+    volumes:
+      - .:/var/www/hrm
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - hrm_network
+    depends_on:
+      - app
+
+  db:
+    image: postgres:15-alpine
+    container_name: hrm_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-hrm}
+      POSTGRES_USER: ${DB_USERNAME:-hrm_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_strong_password}
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - hrm_network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  hrm_network:
+    driver: bridge

@@ -1,0 +1,32 @@
+<?php
+
+/** Giá trị mặc định khi công ty chưa cấu hình (tầng 1). */
+return [
+    'standard_working_days' => '26',
+    'annual_leave_standard' => '12',
+    'insurance_rate_employer' => '21.5',
+    'insurance_rate_employee' => '10.5',
+    'ot_coeff_weekday' => '1.5',
+    'ot_coeff_weekend' => '2.0',
+    'ot_coeff_holiday' => '3.0',
+    'attendance_mobile_punch_enabled' => '1',
+    'attendance_geofence_strict' => '1',
+    'attendance_field_trip_code' => 'CONG_TAC',
+    'compliance_alerts_enabled' => '1',
+    'performance_bonus_enabled' => '1',
+    'performance_bonus_rate' => '0.15',
+    'performance_bonus_use_prev_month' => '1',
+    'sales_commission_enabled' => '0',
+    'sales_commission_rate' => '0.02',
+    'termination_unused_leave_days_default' => '0',
+    'diligence_bonus_enabled' => '1',
+    'diligence_bonus_amount' => '500000',
+    'diligence_min_attendance_rate' => '98',
+    'diligence_max_late_count' => '1',
+    'diligence_max_absent_days' => '0',
+    'diligence_max_forgot_punch' => '2',
+    'diligence_phase_mode' => 'full_month',
+    'diligence_bonus_amount_probation' => '',
+    'diligence_bonus_amount_official' => '',
+    'diligence_prorate_on_phase_split' => '0',
+];
