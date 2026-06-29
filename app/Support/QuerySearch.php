@@ -16,10 +16,11 @@ class QuerySearch
             return $query;
         }
 
-        return $query->where(function ($q) use ($search) {
-            $q->where('full_name', 'ilike', "%{$search}%")
-                ->orWhere('employee_code', 'ilike', "%{$search}%")
-                ->orWhere('email', 'ilike', "%{$search}%");
+        $lower = strtolower($search);
+        return $query->where(function ($q) use ($lower) {
+            $q->whereRaw('LOWER(full_name) LIKE ?', ["%{$lower}%"])
+                ->orWhereRaw('LOWER(employee_code) LIKE ?', ["%{$lower}%"])
+                ->orWhereRaw('LOWER(email) LIKE ?', ["%{$lower}%"]);
         });
     }
 

@@ -33,7 +33,7 @@ class EmployeeController extends ApiController
             $query->with(['profile:employee_id,biometric_id']);
         }
 
-        return $this->success($query->orderBy('last_name')->paginate($request->integer('per_page', 50)));
+        return $this->success($query->orderBy('id', 'desc')->paginate($request->integer('per_page', 50)));
     }
 
     public function store(EmployeeRequest $request): \Illuminate\Http\JsonResponse
@@ -126,9 +126,10 @@ class EmployeeController extends ApiController
 
         $lastCode = Employee::where('company_id', $companyId)
             ->whereNotNull('employee_code')
-            ->whereRaw("employee_code ~ '^[A-Za-z]*[0-9]+$'")
+            ->where('employee_code', '!=', '')
             ->orderByRaw('LENGTH(employee_code) DESC, employee_code DESC')
-            ->value('employee_code');
+            ->pluck('employee_code')
+            ->first(fn ($code) => preg_match('/^[A-Za-z]*[0-9]+$/', $code));
 
         if (!$lastCode) {
             return $this->success(['next_code' => null]);
