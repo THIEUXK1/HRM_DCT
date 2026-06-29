@@ -17,9 +17,9 @@ class QuerySearch
         }
 
         return $query->where(function ($q) use ($search) {
-            $q->where('full_name', 'like', "%{$search}%")
-                ->orWhere('employee_code', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%");
+            $q->where('full_name', 'ilike', "%{$search}%")
+                ->orWhere('employee_code', 'ilike', "%{$search}%")
+                ->orWhere('email', 'ilike', "%{$search}%");
         });
     }
 

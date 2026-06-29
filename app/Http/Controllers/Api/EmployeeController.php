@@ -23,7 +23,7 @@ class EmployeeController extends ApiController
     public function index(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
     {
         $query = Employee::query()
-            ->with(['branch:id,name,code', 'department:id,name', 'position:id,name']);
+            ->with(['company:id,name', 'branch:id,name,code', 'department:id,name', 'position:id,name']);
 
         EmployeeQueryScope::apply($query, $request);
 
@@ -89,7 +89,7 @@ class EmployeeController extends ApiController
         $this->authorize('view', $employee);
         $path = $employee->profile?->profile_picture_path;
         if (! $path || ! Storage::disk(HrFileStorage::DISK)->exists($path)) {
-            abort(404, 'Không có ảnh đại diện.');
+            return response()->noContent();
         }
         return Storage::disk(HrFileStorage::DISK)->response($path);
     }
@@ -118,6 +118,33 @@ class EmployeeController extends ApiController
         );
 
         return $this->success(['profile_picture_path' => $path]);
+    }
+
+    public function nextCode(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
+    {
+        $companyId = $request->integer('company_id');
+
+        $lastCode = Employee::where('company_id', $companyId)
+            ->whereNotNull('employee_code')
+            ->whereRaw("employee_code ~ '^[A-Za-z]*[0-9]+$'")
+            ->orderByRaw('LENGTH(employee_code) DESC, employee_code DESC')
+            ->value('employee_code');
+
+        if (!$lastCode) {
+            return $this->success(['next_code' => null]);
+        }
+
+        preg_match('/^([A-Za-z]*)(\d+)$/', $lastCode, $m);
+        $prefix = strtoupper($m[1] ?? '');
+        $num    = (int) ($m[2] ?? 0);
+
+        // Tăng đến khi tìm được mã chưa dùng
+        do {
+            $num++;
+            $nextCode = $prefix . $num;
+        } while (Employee::where('employee_code', $nextCode)->exists());
+
+        return $this->success(['next_code' => $nextCode]);
     }
 
     public function export(\Illuminate\Http\Request $request): \Symfony\Component\HttpFoundation\Response

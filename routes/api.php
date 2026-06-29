@@ -217,6 +217,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('role_or_permission:admin|employees.view|employees.manage|employees.edit')->group(function () {
             Route::get('employees/actions/export', [EmployeeController::class, 'export']);
             Route::get('employees/actions/template', [EmployeeController::class, 'downloadTemplate']);
+            Route::get('employees/actions/next-code', [EmployeeController::class, 'nextCode']);
             Route::post('employees/actions/import', [EmployeeController::class, 'import']);
             Route::post('employees/actions/sync-api/prepare', [\App\Http\Controllers\Api\EmployeeSyncController::class, 'prepare']);
             Route::post('employees/actions/sync-api/execute', [\App\Http\Controllers\Api\EmployeeSyncController::class, 'execute']);

@@ -81,6 +81,7 @@
               <td>
                 <span v-if="e.source_company" class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">{{ e.source_company }}</span>
                 <span v-else class="text-slate-300 text-xs">—</span>
+                <p v-if="e.company?.name" class="text-[10px] text-slate-400 mt-0.5 leading-tight">{{ e.company.name }}</p>
               </td>
               <td>
                 <UiBadge :variant="
@@ -117,35 +118,8 @@
     <UiModal v-model="showForm" :title="editing ? 'Sửa nhân viên' : 'Thêm nhân viên'" wide>
       <form class="space-y-4" @submit.prevent="save">
 
-        <!-- Thông tin cơ bản -->
+        <!-- Tổ chức — chọn trước để lấy mã NV và cascade phòng ban/chức danh -->
         <div>
-          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin cơ bản</p>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="col-span-2">
-              <label class="text-sm font-medium">Họ và tên <span class="text-rose-500">*</span></label>
-              <input v-model="form.full_name" class="hcm-input mt-1" required placeholder="VD: Nguyễn Văn An" />
-            </div>
-            <div>
-              <label class="text-sm font-medium">Tên tiếng Trung</label>
-              <input v-model="form.chinese_name" class="hcm-input mt-1" placeholder="VD: 阮文安" />
-            </div>
-            <div>
-              <label class="text-sm font-medium">Họ tên gốc (song ngữ)</label>
-              <input v-model="form.full_name_raw" class="hcm-input mt-1" placeholder="VD: Nguyễn Văn An 阮文安" />
-            </div>
-            <div>
-              <label class="text-sm font-medium">Mã nhân viên</label>
-              <input v-model="form.employee_code" class="hcm-input mt-1" placeholder="VD: V260001" />
-            </div>
-            <div>
-              <label class="text-sm font-medium">Email</label>
-              <input v-model="form.email" type="email" class="hcm-input mt-1" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Tổ chức -->
-        <div class="border-t pt-3">
           <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Tổ chức</p>
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -175,6 +149,33 @@
                 <option :value="null">-- Chọn chức danh --</option>
                 <option v-for="p in formPositions" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Thông tin cơ bản -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin cơ bản</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-medium">Mã nhân viên</label>
+              <input v-model="form.employee_code" class="hcm-input mt-1" placeholder="VD: V260001" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Email</label>
+              <input v-model="form.email" type="email" class="hcm-input mt-1" />
+            </div>
+            <div class="col-span-2">
+              <label class="text-sm font-medium">Họ và tên <span class="text-rose-500">*</span></label>
+              <input v-model="form.full_name" class="hcm-input mt-1" required placeholder="VD: Nguyễn Văn An" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Tên tiếng Trung</label>
+              <input v-model="form.chinese_name" class="hcm-input mt-1" placeholder="VD: 阮文安" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Họ tên gốc (song ngữ)</label>
+              <input v-model="form.full_name_raw" class="hcm-input mt-1 bg-slate-50" placeholder="Tự điền từ họ tên + tiếng Trung" readonly />
             </div>
           </div>
         </div>
@@ -365,7 +366,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import api from '../../api/client';
 import UiPageHeader from '../../components/ui/UiPageHeader.vue';
@@ -427,6 +428,14 @@ const showForm = ref(false);
 const editing = ref(false);
 const saving = ref(false);
 const form = ref(emptyForm());
+
+// Auto-fill họ tên gốc khi gõ họ tên Việt hoặc tên tiếng Trung
+watch(
+  [() => form.value.full_name, () => form.value.chinese_name],
+  ([name, chinese]) => {
+    form.value.full_name_raw = [name, chinese].filter(Boolean).join(' ').trim();
+  },
+);
 
 const showImportModal = ref(false);
 const importing = ref(false);
@@ -500,14 +509,21 @@ async function onFormCompanyChange() {
   form.value.branch_id = null;
   form.value.department_id = null;
   form.value.position_id = null;
+  form.value.employee_code = '';
   formBranches.value = [];
   formDepartments.value = [];
   formPositions.value = [];
   if (!form.value.company_id) return;
-  const { data } = await api.get('/branches', {
-    headers: { 'X-Company-Id': form.value.company_id },
-  });
-  formBranches.value = data.data || [];
+
+  const [branchRes, codeRes] = await Promise.all([
+    api.get('/branches', { headers: { 'X-Company-Id': form.value.company_id } }),
+    api.get('/employees/actions/next-code', { params: { company_id: form.value.company_id } }),
+  ]);
+
+  formBranches.value = branchRes.data.data || [];
+  if (codeRes.data.data.next_code) {
+    form.value.employee_code = codeRes.data.data.next_code;
+  }
 }
 
 async function onFormBranchChange() {
@@ -519,7 +535,7 @@ async function onFormBranchChange() {
   const { data } = await api.get('/departments', {
     params: { branch_id: form.value.branch_id },
   });
-  formDepartments.value = data.data || [];
+  formDepartments.value = (data.data || []).filter(d => d.name && d.name.trim());
 }
 
 async function onFormDeptChange() {

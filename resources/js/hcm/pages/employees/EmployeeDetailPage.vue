@@ -11,6 +11,61 @@
       </template>
     </UiPageHeader>
 
+    <!-- Overview card -->
+    <div class="hcm-card p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 text-sm">
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Công ty</p>
+        <p class="font-medium text-slate-800">{{ employee.company?.name || '—' }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Chi nhánh</p>
+        <p class="font-medium text-slate-800">{{ employee.branch?.name || '—' }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Phòng ban</p>
+        <p class="font-medium text-slate-800">{{ employee.department?.name || '—' }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Chức danh</p>
+        <p class="font-medium text-slate-800">{{ employee.position?.name || '—' }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Trạng thái</p>
+        <UiBadge :variant="employee.employment_status === 'active' ? 'success' : employee.employment_status === 'probation' ? 'info' : ['terminated','resigned'].includes(employee.employment_status) ? 'danger' : 'warning'">
+          {{ statusLabel(employee.employment_status) }}
+        </UiBadge>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Ngày vào làm</p>
+        <p class="font-medium text-slate-800">{{ date(employee.hire_date) || '—' }}</p>
+      </div>
+      <div v-if="employee.termination_date">
+        <p class="text-xs text-slate-400 mb-0.5">Ngày nghỉ việc</p>
+        <p class="font-medium text-red-600">{{ date(employee.termination_date) }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 mb-0.5">Nguồn</p>
+        <span v-if="employee.source_company" class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">{{ employee.source_company }}</span>
+        <span v-else class="text-slate-400">Thủ công</span>
+      </div>
+      <div v-if="employee.chinese_name">
+        <p class="text-xs text-slate-400 mb-0.5">Tên tiếng Trung</p>
+        <p class="font-medium text-slate-800">{{ employee.chinese_name }}</p>
+      </div>
+      <div v-if="employee.email">
+        <p class="text-xs text-slate-400 mb-0.5">Email</p>
+        <p class="font-medium text-slate-800 truncate">{{ employee.email }}</p>
+      </div>
+      <div v-if="employee.phone">
+        <p class="text-xs text-slate-400 mb-0.5">Điện thoại</p>
+        <p class="font-medium text-slate-800">{{ employee.phone }}</p>
+      </div>
+      <div v-if="employee.bank_name">
+        <p class="text-xs text-slate-400 mb-0.5">Ngân hàng</p>
+        <p class="font-medium text-slate-800">{{ employee.bank_name }}</p>
+      </div>
+    </div>
+
     <div class="mb-4 flex flex-wrap gap-1 border-b border-slate-200">
       <button
         v-for="t in tabs"
@@ -63,8 +118,9 @@
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Họ" v-model="form.first_name" required />
-        <Field label="Tên" v-model="form.last_name" required />
+        <Field label="Họ và tên" v-model="form.full_name" class="sm:col-span-2" />
+        <Field label="Tên tiếng Trung" v-model="form.chinese_name" />
+        <Field label="Họ tên gốc (song ngữ)" v-model="form.full_name_raw" class="sm:col-span-2 lg:col-span-3" />
         <Field label="Giới tính" v-model="form.gender" type="select" :options="meta.genders" />
         <Field label="Ngày sinh" v-model="form.date_of_birth" type="date" />
         <Field label="Nơi sinh" v-model="form.place_of_birth" />
@@ -121,6 +177,8 @@
       <h3 class="font-semibold">Thông tin lao động</h3>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Mã nhân viên" v-model="form.employee_code" required />
+        <Field label="Nguồn dữ liệu" v-model="form.source_company" type="select" :options="{ BPVN: 'BPVN', PFVN: 'PFVN', MEGA: 'MEGA' }" />
+        <Field label="Chi nhánh" v-model="form.branch_id" type="select" :options="branchOptions" />
         <Field label="Phòng ban" v-model="form.department_id" type="select" :options="departmentOptions" />
         <Field label="Chức danh" v-model="form.position_id" type="select" :options="positionOptions" />
         <Field label="Loại hình" v-model="form.employment_type" type="select" :options="meta.employment_types" />
@@ -714,7 +772,7 @@ const Field = defineComponent({
 
 const route = useRoute();
 const { downloadApiGet } = useFileDownload();
-const { date, money } = useFormat();
+const { date, money, statusLabel } = useFormat();
 
 const loading = ref(true);
 const saving = ref(false);
@@ -730,6 +788,7 @@ async function loadPhoto() {
   if (!employee.value?.id) return;
   try {
     const res = await api.get(`/employees/${employee.value.id}/photo`, { responseType: 'blob' });
+    if (res.status === 204 || !res.data?.size) { photoSrc.value = null; return; }
     if (photoSrc.value) URL.revokeObjectURL(photoSrc.value);
     photoSrc.value = URL.createObjectURL(res.data);
   } catch {
@@ -833,54 +892,54 @@ function syncForms(data) {
 
 async function load() {
   const id = route.params.id;
-  const [emp, metaRes, d, p, b, aw, tr, te] = await Promise.all([
+
+  // Ưu tiên load dữ liệu cốt lõi để hiện trang ngay
+  const [emp, metaRes, d, p, b] = await Promise.all([
     api.get(`/employees/${id}`),
     api.get('/hr-meta'),
     api.get('/departments'),
     api.get('/positions'),
     api.get('/branches'),
-    api.get(`/employees/${id}/awards-discipline`),
-    api.get(`/employees/${id}/transfers`),
-    api.get(`/employees/${id}/terminations`),
   ]);
   employee.value = emp.data.data;
   meta.value = { ...meta.value, ...metaRes.data.data };
   departments.value = d.data.data;
   positions.value = p.data.data;
   branches.value = b.data.data;
-  awards.value = aw.data.data;
-  transfers.value = tr.data.data;
-  terminations.value = te.data.data;
   syncForms(employee.value);
-  loadPhoto(); // non-blocking — 404 if no photo yet
-  try {
-    const g = await api.get('/leave-entitlement-groups');
-    leaveEntitlementGroups.value = g.data.data || [];
-  } catch {
-    leaveEntitlementGroups.value = [];
-  }
-  await loadPunchAccount();
+  loadPhoto();
+
+  // Phần còn lại load ngầm, không block hiển thị
+  loadTabData(id);
+}
+
+async function loadTabData(id) {
   const empId = Number(id);
-  const [ob, cm, cyclesRes] = await Promise.all([
-    api.get(`/employees/${id}/onboarding-tasks`),
-    api.get(`/employees/${id}/competency-matrix`),
-    api.get('/performance-cycles'),
+
+  // Load các tab phụ song song, lỗi không block
+  await Promise.allSettled([
+    api.get(`/employees/${id}/awards-discipline`).then(r => { awards.value = r.data.data; }),
+    api.get(`/employees/${id}/transfers`).then(r => { transfers.value = r.data.data; }),
+    api.get(`/employees/${id}/terminations`).then(r => { terminations.value = r.data.data; }),
+    api.get('/leave-entitlement-groups').then(r => { leaveEntitlementGroups.value = r.data.data || []; }),
+    loadPunchAccount(),
+    api.get(`/employees/${id}/onboarding-tasks`).then(r => { onboardingTasks.value = r.data.data; }),
+    api.get(`/employees/${id}/competency-matrix`).then(r => { competencyMatrix.value = r.data.data; }),
+    api.get('/performance-cycles').then(async r => {
+      const cycle = r.data.data[0];
+      if (!cycle) { employeeKpi.value = null; return; }
+      try {
+        const row = (await api.get('/reports/performance-kpi', { params: { performance_cycle_id: cycle.id } })).data.data;
+        const empRow = (row.employees || []).find(e => e.employee_id === empId);
+        employeeKpi.value = {
+          cycle: row.cycle,
+          goals: cycle.goals?.filter(g => g.employee_id === empId) || [],
+          kpi_score: empRow?.kpi_score,
+          review: cycle.reviews?.find(r => r.employee_id === empId) || null,
+        };
+      } catch { employeeKpi.value = null; }
+    }),
   ]);
-  onboardingTasks.value = ob.data.data;
-  competencyMatrix.value = cm.data.data;
-  const cycle = cyclesRes.data.data[0];
-  if (cycle) {
-    const row = (await api.get('/reports/performance-kpi', { params: { performance_cycle_id: cycle.id } })).data.data;
-    const empRow = (row.employees || []).find((e) => e.employee_id === empId);
-    employeeKpi.value = {
-      cycle: row.cycle,
-      goals: cycle.goals?.filter((g) => g.employee_id === empId) || [],
-      kpi_score: empRow?.kpi_score,
-      review: cycle.reviews?.find((r) => r.employee_id === empId) || null,
-    };
-  } else {
-    employeeKpi.value = null;
-  }
 }
 
 async function updateOnboardingTask(taskId, status) {
