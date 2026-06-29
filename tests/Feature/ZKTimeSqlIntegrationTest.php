@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
+/**
+ * @group integration
+ */
 class ZKTimeSqlIntegrationTest extends TestCase
 {
     use RefreshDatabase;
