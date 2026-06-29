@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
         $tenant = \App\Models\Tenant::first();
         $company = \App\Models\Company::first();
 
-        $admin = User::firstOrCreate(
+        $admin = User::updateOrCreate(
             ['email' => 'admin@example.com'],
             [
                 'name' => 'Admin User',

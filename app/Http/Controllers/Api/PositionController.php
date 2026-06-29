@@ -13,9 +13,15 @@ class PositionController extends ApiController
         $this->authorizeResource(Position::class, 'position');
     }
 
-    public function index(): \Illuminate\Http\JsonResponse
+    public function index(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
     {
-        return $this->success(Position::with('department')->orderBy('name')->get());
+        $query = Position::with('department')->orderBy('name');
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->integer('department_id'));
+        }
+
+        return $this->success($query->get());
     }
 
     public function store(PositionRequest $request): \Illuminate\Http\JsonResponse

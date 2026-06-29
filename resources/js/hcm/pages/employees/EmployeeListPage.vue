@@ -4,6 +4,7 @@
       <template #actions>
         <button type="button" class="hcm-btn-secondary mr-2" @click="triggerExport">Xuất Excel</button>
         <button type="button" class="hcm-btn-secondary mr-2" @click="showImportModal = true">Nhập Excel</button>
+        <button type="button" class="hcm-btn-secondary mr-2" @click="showSyncModal = true">🔄 Đồng bộ API</button>
         <EmployeeCardPrint v-if="selectedIds.size > 0" :employees="selectedEmployees" />
         <button type="button" class="hcm-btn-primary" @click="openCreate">+ Thêm nhân viên</button>
       </template>
@@ -13,24 +14,36 @@
       <UiOrgScopeFilters
         show-company
         show-status
-        :show-company-picker="scope.showCompanyPicker"
-        :single-branch-mode="scope.singleBranchMode"
+        :show-company-picker="showCompanyPicker"
+        :single-branch-mode="singleBranchMode"
         v-model:filter-company-id="filterCompanyId"
         v-model:filter-branch-id="filterBranchId"
         v-model:filter-department-id="filterDepartmentId"
         v-model:filter-status="filterStatus"
-        :branches="scope.branches"
-        :filtered-departments="scope.filteredDepartments"
+        :branches="branches"
+        :filtered-departments="filteredDepartments"
         @company-change="onScopeCompanyChange"
         @change="applyScopeFilters"
         @reset="resetScopeFilters"
       />
-      <UiSearchInput
-        v-model="search"
-        placeholder="Tìm theo tên, mã NV, email..."
-        :hint="`${meta.total} nhân viên`"
-        @search="onSearch"
-      />
+      <div class="flex items-center gap-3">
+        <UiSearchInput
+          v-model="search"
+          placeholder="Tìm theo tên, mã NV, email..."
+          :hint="`${meta.total} nhân viên`"
+          class="flex-1"
+          @search="onSearch"
+        />
+        <div class="flex items-center gap-2 shrink-0">
+          <label class="text-xs text-slate-500 whitespace-nowrap">Mỗi trang</label>
+          <select v-model="perPage" class="hcm-input text-sm py-1.5 w-20" @change="onPerPageChange">
+            <option :value="10">10</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <div class="hcm-card overflow-hidden">
@@ -47,6 +60,7 @@
               <th>Chi nhánh</th>
               <th>Phòng ban</th>
               <th>Chức danh</th>
+              <th>Nguồn</th>
               <th>Trạng thái</th>
               <th></th>
             </tr>
@@ -65,7 +79,15 @@
               <td>{{ e.department?.name || '—' }}</td>
               <td>{{ e.position?.name || '—' }}</td>
               <td>
-                <UiBadge :variant="e.employment_status === 'active' ? 'success' : 'warning'">
+                <span v-if="e.source_company" class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">{{ e.source_company }}</span>
+                <span v-else class="text-slate-300 text-xs">—</span>
+              </td>
+              <td>
+                <UiBadge :variant="
+                  e.employment_status === 'active' ? 'success' :
+                  e.employment_status === 'probation' ? 'info' :
+                  ['terminated','resigned'].includes(e.employment_status) ? 'danger' : 'warning'
+                ">
                   {{ statusLabel(e.employment_status) }}
                 </UiBadge>
               </td>
@@ -92,45 +114,209 @@
     </div>
 
     <!-- Modal tạo nhân viên -->
-    <UiModal v-model="showForm" :title="editing ? 'Sửa nhân viên' : 'Thêm nhân viên'">
-      <form class="space-y-3" @submit.prevent="save">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-sm font-medium">Họ</label>
-            <input v-model="form.first_name" class="hcm-input mt-1" required />
-          </div>
-          <div>
-            <label class="text-sm font-medium">Tên</label>
-            <input v-model="form.last_name" class="hcm-input mt-1" required />
-          </div>
-        </div>
+    <UiModal v-model="showForm" :title="editing ? 'Sửa nhân viên' : 'Thêm nhân viên'" wide>
+      <form class="space-y-4" @submit.prevent="save">
+
+        <!-- Thông tin cơ bản -->
         <div>
-          <label class="text-sm font-medium">Email</label>
-          <input v-model="form.email" type="email" class="hcm-input mt-1" required />
-        </div>
-        <div>
-          <label class="text-sm font-medium">Mã NV</label>
-          <input v-model="form.employee_code" class="hcm-input mt-1" />
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-sm font-medium">Phòng ban</label>
-            <select v-model="form.department_id" class="hcm-input mt-1" required>
-              <option v-for="d in scope.filteredDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
-            </select>
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin cơ bản</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="col-span-2">
+              <label class="text-sm font-medium">Họ và tên <span class="text-rose-500">*</span></label>
+              <input v-model="form.full_name" class="hcm-input mt-1" required placeholder="VD: Nguyễn Văn An" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Tên tiếng Trung</label>
+              <input v-model="form.chinese_name" class="hcm-input mt-1" placeholder="VD: 阮文安" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Họ tên gốc (song ngữ)</label>
+              <input v-model="form.full_name_raw" class="hcm-input mt-1" placeholder="VD: Nguyễn Văn An 阮文安" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Mã nhân viên</label>
+              <input v-model="form.employee_code" class="hcm-input mt-1" placeholder="VD: V260001" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Email</label>
+              <input v-model="form.email" type="email" class="hcm-input mt-1" />
+            </div>
           </div>
-          <div>
-            <label class="text-sm font-medium">Chức danh</label>
-            <select v-model="form.position_id" class="hcm-input mt-1" required>
-              <option v-for="p in positions" :key="p.id" :value="p.id">{{ p.name }}</option>
-            </select>
+        </div>
+
+        <!-- Tổ chức -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Tổ chức</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-medium">Công ty <span class="text-rose-500">*</span></label>
+              <select v-model="form.company_id" class="hcm-input mt-1" required @change="onFormCompanyChange">
+                <option :value="null">-- Chọn công ty --</option>
+                <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Chi nhánh</label>
+              <select v-model="form.branch_id" class="hcm-input mt-1" :disabled="!form.company_id" @change="onFormBranchChange">
+                <option :value="null">-- Chọn chi nhánh --</option>
+                <option v-for="b in formBranches" :key="b.id" :value="b.id">{{ b.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Phòng ban <span class="text-rose-500">*</span></label>
+              <select v-model="form.department_id" class="hcm-input mt-1" required :disabled="!form.branch_id" @change="onFormDeptChange">
+                <option :value="null">-- Chọn phòng ban --</option>
+                <option v-for="d in formDepartments" :key="d.id" :value="d.id">{{ d.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Chức danh <span class="text-rose-500">*</span></label>
+              <select v-model="form.position_id" class="hcm-input mt-1" required :disabled="!form.department_id">
+                <option :value="null">-- Chọn chức danh --</option>
+                <option v-for="p in formPositions" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+            </div>
           </div>
         </div>
+
+        <!-- Trạng thái & Thời gian -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Trạng thái & Thời gian</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-medium">Trạng thái làm việc</label>
+              <select v-model="form.employment_status" class="hcm-input mt-1">
+                <option value="active">Đang làm việc</option>
+                <option value="probation">Thử việc</option>
+                <option value="maternity_leave">Nghỉ thai sản</option>
+                <option value="unpaid_leave">Nghỉ không lương</option>
+                <option value="suspended">Đình chỉ</option>
+                <option value="terminated">Nghỉ việc</option>
+                <option value="resigned">Tự nghỉ</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Nguồn dữ liệu</label>
+              <select v-model="form.source_company" class="hcm-input mt-1">
+                <option value="">-- Nhập thủ công --</option>
+                <option value="BPVN">BPVN</option>
+                <option value="PFVN">PFVN</option>
+                <option value="MEGA">MEGA</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Ngày vào làm</label>
+              <input v-model="form.hire_date" type="date" class="hcm-input mt-1" />
+            </div>
+            <div v-if="form.employment_status === 'terminated' || form.employment_status === 'resigned'">
+              <label class="text-sm font-medium">Ngày nghỉ việc</label>
+              <input v-model="form.termination_date" type="date" class="hcm-input mt-1" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Ngân hàng -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Ngân hàng</p>
+          <div>
+            <label class="text-sm font-medium">Tên ngân hàng</label>
+            <input v-model="form.bank_name" class="hcm-input mt-1" placeholder="VD: Vietcombank" />
+          </div>
+        </div>
+
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="hcm-btn-secondary" @click="showForm = false">Hủy</button>
           <button type="submit" class="hcm-btn-primary" :disabled="saving">{{ saving ? 'Đang lưu...' : 'Lưu' }}</button>
         </div>
       </form>
+    </UiModal>
+
+    <!-- Modal đồng bộ API -->
+    <UiModal v-model="showSyncModal" title="Đồng bộ nhân viên từ API">
+      <div class="space-y-4">
+        <!-- Bước 1: Chọn thông tin -->
+        <template v-if="!syncing && !syncResults">
+          <div>
+            <label class="text-sm font-medium block mb-1">Công ty trong hệ thống</label>
+            <select v-model="syncForm.company_id" class="hcm-input" :disabled="syncing">
+              <option value="">-- Chọn công ty --</option>
+              <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium block mb-1">Nguồn API</label>
+            <select v-model="syncForm.api_type" class="hcm-input" :disabled="syncing">
+              <option value="">-- Chọn API --</option>
+              <option value="BPVN">BPVN — Best Pacific Việt Nam</option>
+              <option value="PFVN">PFVN — PF Việt Nam</option>
+              <option value="MEGA">MEGA</option>
+            </select>
+          </div>
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+            Đồng bộ tháng <strong>{{ currentYM }}</strong>. Mã NV (<strong>EMPNO</strong>) là duy nhất toàn hệ thống — nếu nhân viên đã tồn tại ở công ty khác sẽ chỉ <strong>đổi công ty</strong>, không tạo thêm bản ghi mới.
+          </div>
+        </template>
+
+        <!-- Bước 2: Đang đồng bộ — progress bar -->
+        <template v-if="syncing">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between text-sm">
+              <span class="font-medium text-slate-700">Đang đồng bộ {{ syncForm.api_type }}...</span>
+              <span class="font-bold text-primary-600">{{ syncProgress }}%</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+              <div
+                class="h-3 rounded-full bg-primary-500 transition-all duration-300"
+                :style="{ width: syncProgress + '%' }"
+              ></div>
+            </div>
+            <p class="text-xs text-slate-500 text-center">
+              {{ syncProcessed }} / {{ syncTotal }} nhân viên
+            </p>
+          </div>
+        </template>
+
+        <!-- Bước 3: Kết quả -->
+        <template v-if="syncResults && !syncing">
+          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-2">
+            <p class="font-semibold text-emerald-800">Đồng bộ hoàn tất — {{ syncResults.api_type }} tháng {{ syncResults.ym }}</p>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-white rounded p-2 border">
+                <p class="text-2xl font-bold text-emerald-600">{{ syncResults.created }}</p>
+                <p class="text-slate-500">Tạo mới</p>
+              </div>
+              <div class="bg-white rounded p-2 border">
+                <p class="text-2xl font-bold text-blue-600">{{ syncResults.updated }}</p>
+                <p class="text-slate-500">Cập nhật</p>
+              </div>
+              <div class="bg-white rounded p-2 border">
+                <p class="text-2xl font-bold text-slate-600">{{ syncResults.total }}</p>
+                <p class="text-slate-500">Tổng API</p>
+              </div>
+            </div>
+            <div v-if="syncResults.errors?.length" class="text-rose-600 text-xs mt-1">
+              <p class="font-semibold">Lỗi ({{ syncResults.errors.length }}):</p>
+              <ul class="list-disc pl-4 max-h-24 overflow-y-auto space-y-0.5 mt-1">
+                <li v-for="(err, i) in syncResults.errors" :key="i">{{ err }}</li>
+              </ul>
+            </div>
+          </div>
+        </template>
+
+        <div class="flex justify-end gap-2 pt-2 border-t">
+          <button type="button" class="hcm-btn-secondary" :disabled="syncing" @click="closeSyncModal">Đóng</button>
+          <button
+            v-if="!syncResults"
+            type="button"
+            class="hcm-btn-primary"
+            :disabled="syncing || !syncForm.company_id || !syncForm.api_type"
+            @click="handleSync"
+          >
+            {{ syncing ? 'Đang đồng bộ...' : '🔄 Bắt đầu đồng bộ' }}
+          </button>
+          <button v-else type="button" class="hcm-btn-primary" @click="resetSync">🔄 Đồng bộ lại</button>
+        </div>
+      </div>
     </UiModal>
 
     <!-- Modal nhập Excel -->
@@ -199,15 +385,19 @@ import { useFileDownload } from '../../composables/useFileDownload';
 const { statusLabel } = useFormat();
 const toast = useToast();
 const router = useRouter();
+const currentYM = new Date().toISOString().slice(0, 7);
 
 const { items, meta, loading, fetch, changePage, setFilter, setFilters } = usePagination(api, '/employees');
 const scope = useOrgScopeFilters({ includeStatus: true });
-// Destructure filter refs to top-level so Vue v-model can correctly assign .value
-const { filterCompanyId, filterBranchId, filterDepartmentId, filterStatus } = scope;
+// Destructure to top-level — Vue chỉ auto-unwrap Ref ở top-level, không unwrap qua scope.xxx
+const { filterCompanyId, filterBranchId, filterDepartmentId, filterStatus, branches, filteredDepartments, showCompanyPicker, singleBranchMode } = scope;
 
-const positions = ref([]);
 const companies = ref([]);
+const formBranches = ref([]);
+const formDepartments = ref([]);
+const formPositions = ref([]);
 const search = ref('');
+const perPage = ref(25);
 
 // Selection for batch card printing
 const selectedIds = ref(new Set());
@@ -243,29 +433,42 @@ const importing = ref(false);
 const importFile = ref(null);
 const importResults = ref(null);
 const downloadingTemplate = ref(false);
+
+const showSyncModal = ref(false);
+const syncing = ref(false);
+const syncResults = ref(null);
+const syncForm = ref({ company_id: '', api_type: '' });
+const syncProgress = ref(0);
+const syncTotal = ref(0);
+const syncProcessed = ref(0);
 const { downloadApiGet } = useFileDownload();
 
 function emptyForm() {
   return {
     company_id: null, branch_id: null, department_id: null, position_id: null,
-    employee_code: '', first_name: '', last_name: '', full_name: '', email: '',
+    employee_code: '',
+    full_name: '', chinese_name: '', full_name_raw: '',
+    first_name: '', last_name: '',
+    email: '',
     employment_status: 'active', is_active: true,
+    hire_date: null, termination_date: null,
+    bank_name: '', source_company: '',
   };
 }
 
 async function loadFormMeta() {
-  const [p, c] = await Promise.all([
-    api.get('/positions'),
-    api.get('/companies'),
-  ]);
-  positions.value = p.data.data;
-  companies.value = c.data.data;
+  const { data } = await api.get('/companies');
+  companies.value = data.data;
 }
 
 function applyScopeFilters() {
-  const extra = {};
+  const extra = { per_page: perPage.value };
   if (search.value.trim()) extra.search = search.value.trim();
   scope.applyToPagination(setFilters, extra);
+}
+
+function onPerPageChange() {
+  setFilter('per_page', perPage.value);
 }
 
 function onSearch(value) {
@@ -287,19 +490,53 @@ async function onScopeCompanyChange(companyId) {
 function openCreate() {
   editing.value = false;
   form.value = emptyForm();
-  const company = companies.value[0];
-  if (company) {
-    form.value.company_id = company.id;
-    form.value.branch_id = scope.branches.value[0]?.id;
-    form.value.department_id = scope.filteredDepartments.value[0]?.id;
-    form.value.position_id = positions.value[0]?.id;
-  }
+  formBranches.value = [];
+  formDepartments.value = [];
+  formPositions.value = [];
   showForm.value = true;
+}
+
+async function onFormCompanyChange() {
+  form.value.branch_id = null;
+  form.value.department_id = null;
+  form.value.position_id = null;
+  formBranches.value = [];
+  formDepartments.value = [];
+  formPositions.value = [];
+  if (!form.value.company_id) return;
+  const { data } = await api.get('/branches', {
+    headers: { 'X-Company-Id': form.value.company_id },
+  });
+  formBranches.value = data.data || [];
+}
+
+async function onFormBranchChange() {
+  form.value.department_id = null;
+  form.value.position_id = null;
+  formDepartments.value = [];
+  formPositions.value = [];
+  if (!form.value.branch_id) return;
+  const { data } = await api.get('/departments', {
+    params: { branch_id: form.value.branch_id },
+  });
+  formDepartments.value = data.data || [];
+}
+
+async function onFormDeptChange() {
+  form.value.position_id = null;
+  formPositions.value = [];
+  if (!form.value.department_id) return;
+  const { data } = await api.get('/positions', {
+    params: { department_id: form.value.department_id },
+  });
+  formPositions.value = data.data || [];
 }
 
 async function save() {
   saving.value = true;
-  form.value.full_name = `${form.value.first_name} ${form.value.last_name}`.trim();
+  form.value.first_name = form.value.full_name;
+  form.value.last_name = '';
+  form.value.is_active = !['terminated', 'resigned'].includes(form.value.employment_status);
   try {
     const { data } = await api.post('/employees', form.value);
     toast.show('Đã thêm nhân viên');
@@ -323,6 +560,81 @@ async function triggerExport() {
     toast.show('Đã xuất file dữ liệu thành công!');
   } catch (e) {
     toast.show('Lỗi khi xuất file nhân viên', 'error');
+  }
+}
+
+async function handleSync() {
+  if (!syncForm.value.company_id || !syncForm.value.api_type) {
+    toast.show('Vui lòng chọn công ty và nguồn API', 'error');
+    return;
+  }
+
+  syncing.value = true;
+  syncResults.value = null;
+  syncProgress.value = 0;
+  syncProcessed.value = 0;
+  syncTotal.value = 0;
+
+  try {
+    // Bước 1: Fetch từ API ngoài, cache lại, lấy tổng số
+    const prepRes = await api.post('/employees/actions/sync-api/prepare', {
+      company_id: syncForm.value.company_id,
+      api_type: syncForm.value.api_type,
+    });
+    const { cache_key, total, ym } = prepRes.data.data;
+    syncTotal.value = total;
+
+    // Bước 2: Xử lý từng chunk 50 NV, cập nhật progress
+    let offset = 0;
+    let totalCreated = 0;
+    let totalUpdated = 0;
+    const allErrors = [];
+
+    while (offset < total) {
+      const execRes = await api.post('/employees/actions/sync-api/execute', {
+        cache_key,
+        company_id: syncForm.value.company_id,
+        api_type: syncForm.value.api_type,
+        offset,
+      });
+      const chunk = execRes.data.data;
+      totalCreated += chunk.created;
+      totalUpdated += chunk.updated;
+      allErrors.push(...(chunk.errors || []));
+      offset = chunk.processed;
+      syncProcessed.value = offset;
+      syncProgress.value = Math.min(100, Math.round((offset / total) * 100));
+      if (chunk.done) break;
+    }
+
+    syncResults.value = {
+      ym,
+      api_type: syncForm.value.api_type,
+      total,
+      created: totalCreated,
+      updated: totalUpdated,
+      errors: allErrors,
+    };
+    toast.show(`Đồng bộ xong: +${totalCreated} mới, ~${totalUpdated} cập nhật`);
+    fetch();
+  } catch (e) {
+    toast.show(e.response?.data?.message || 'Lỗi đồng bộ API', 'error');
+  } finally {
+    syncing.value = false;
+  }
+}
+
+function resetSync() {
+  syncResults.value = null;
+  syncProgress.value = 0;
+  syncProcessed.value = 0;
+  syncTotal.value = 0;
+}
+
+function closeSyncModal() {
+  if (!syncing.value) {
+    showSyncModal.value = false;
+    resetSync();
   }
 }
 
@@ -366,6 +678,6 @@ async function handleImport() {
 onMounted(async () => {
   await scope.loadMeta();
   await loadFormMeta();
-  fetch();
+  fetch({ per_page: perPage.value });
 });
 </script>

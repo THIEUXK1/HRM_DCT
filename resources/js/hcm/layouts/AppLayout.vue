@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex">
+  <div class="h-screen flex overflow-hidden">
     <!-- Sidebar -->
     <aside
       class="hidden lg:flex flex-col bg-slate-900 text-slate-200 transition-all duration-200"
@@ -86,7 +86,7 @@
     </aside>
 
     <!-- Main content -->
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
       <!-- Top bar -->
       <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div class="flex h-14 items-center justify-between gap-4 px-4 lg:px-6">
@@ -152,7 +152,7 @@
         </RouterLink>
       </nav>
 
-      <main class="flex-1 p-4 lg:p-6">
+      <main class="flex-1 overflow-y-auto p-4 lg:p-6">
         <RouterView />
       </main>
     </div>

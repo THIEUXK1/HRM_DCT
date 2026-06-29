@@ -218,6 +218,8 @@ Route::prefix('v1')->group(function () {
             Route::get('employees/actions/export', [EmployeeController::class, 'export']);
             Route::get('employees/actions/template', [EmployeeController::class, 'downloadTemplate']);
             Route::post('employees/actions/import', [EmployeeController::class, 'import']);
+            Route::post('employees/actions/sync-api/prepare', [\App\Http\Controllers\Api\EmployeeSyncController::class, 'prepare']);
+            Route::post('employees/actions/sync-api/execute', [\App\Http\Controllers\Api\EmployeeSyncController::class, 'execute']);
             Route::apiResource('employees', EmployeeController::class);
             Route::get('employees/{employee}/photo', [EmployeeController::class, 'photo']);
             Route::post('employees/{employee}/photo', [EmployeeController::class, 'uploadPhoto']);
