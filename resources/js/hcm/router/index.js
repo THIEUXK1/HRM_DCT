@@ -60,6 +60,7 @@ const routes = [
             { path: 'benefits', name: 'benefits', component: () => import('../pages/benefits/BenefitsPage.vue') },
             { path: 'notifications', name: 'notifications', component: () => import('../pages/notifications/NotificationsPage.vue') },
             { path: 'audit-log', name: 'audit-log', component: () => import('../pages/audit/AuditLogPage.vue') },
+            { path: 'user-management', name: 'user-management', component: () => import('../pages/admin/UserManagementPage.vue') },
         ],
     },
 ];

@@ -20,8 +20,8 @@
 
     <div v-else-if="mode === 'single'">
       <label class="text-sm font-medium">Nhân viên</label>
-      <select :value="employeeId" class="hcm-input mt-1 w-full" required @change="onSingleChange">
-        <option value="">— Chọn —</option>
+      <select v-model="employeeId" class="hcm-input mt-1 w-full" required>
+        <option :value="null">— Chọn —</option>
         <option v-for="e in employees" :key="e.id" :value="e.id">
           {{ e.full_name }} ({{ e.employee_code }})
         </option>
@@ -138,11 +138,6 @@ watch(
 const employeeId = defineModel('employeeId', { type: [Number, String, null], default: null });
 const employeeIds = defineModel('employeeIds', { type: Array, default: () => [] });
 const departmentId = defineModel('departmentId', { type: [Number, String, null], default: '' });
-
-function onSingleChange(event) {
-  const v = event.target.value;
-  employeeId.value = v ? Number(v) : null;
-}
 
 const multiSearch = ref('');
 const filterDepartmentId = ref('');

@@ -330,6 +330,10 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('roles', RoleController::class);
             Route::get('permissions', [PermissionController::class, 'index']);
         });
+        // Reset mật khẩu — chỉ admin (isTenantAdmin kiểm tra trong controller)
+        Route::middleware('role_or_permission:admin')->group(function () {
+            Route::put('users/{user}/reset-password', [UserController::class, 'resetPassword']);
+        });
 
         // ── Leave & Overtime ──────────────────────────────────────────────────
         Route::middleware('role_or_permission:admin|leave.view|leave.manage|leave.approve')->group(function () {

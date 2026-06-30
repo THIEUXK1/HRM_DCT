@@ -8,12 +8,12 @@
 
     <div class="hcm-card mb-4 p-4 space-y-4">
       <UiOrgScopeFilters
-        :show-company-picker="scope.showCompanyPicker"
-        :single-branch-mode="scope.singleBranchMode"
-        v-model:filter-branch-id="scope.filterBranchId"
-        v-model:filter-department-id="scope.filterDepartmentId"
-        :branches="scope.branches"
-        :filtered-departments="scope.filteredDepartments"
+        :show-company-picker="showCompanyPicker"
+        :single-branch-mode="singleBranchMode"
+        v-model:filter-branch-id="filterBranchId"
+        v-model:filter-department-id="filterDepartmentId"
+        :branches="branches"
+        :filtered-departments="filteredDepartments"
         @change="applyScopeAndLoad"
         @reset="resetScopeFilters"
       />
@@ -102,23 +102,109 @@
     <UiModal v-model="showForm" :title="editing ? 'Sửa hợp đồng' : 'Hợp đồng lao động mới'" wide>
       <form class="space-y-4 max-h-[70vh] overflow-y-auto pr-1" @submit.prevent="save">
         <div class="grid gap-3 sm:grid-cols-2">
-          <div v-if="editing" class="sm:col-span-2">
-            <label class="text-sm font-medium">Nhân viên *</label>
-            <select v-model="form.employee_id" class="hcm-input mt-1 w-full" required disabled>
-              <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.full_name }} ({{ e.employee_code }})</option>
+
+          <!-- Bước 1: Chọn công ty -->
+          <div v-if="!editing" class="sm:col-span-2">
+            <label class="text-sm font-medium">Công ty <span class="text-rose-500">*</span></label>
+            <select v-model="formCompanyId" class="hcm-input mt-1 w-full" required @change="onFormCompanyChange">
+              <option :value="null">-- Chọn công ty trước --</option>
+              <option v-for="c in appStore.companies" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
+
+          <!-- Bước 2: Chọn nhân viên -->
+          <div v-if="editing" class="sm:col-span-2">
+            <label class="text-sm font-medium">Nhân viên</label>
+            <input :value="form.employee?.full_name || form.employee_id" class="hcm-input mt-1 w-full bg-slate-50" disabled />
+          </div>
           <div v-else class="sm:col-span-2">
-            <EmployeeTargetPicker
-              :key="contractPickerKey"
-              v-model:mode="contractTargetMode"
-              v-model:employee-id="form.employee_id"
-              v-model:employee-ids="contractEmployeeIds"
-              v-model:department-id="contractDepartmentId"
-              :employees="employees"
-              :departments="scope.filteredDepartments"
-              :allowed-modes="['single', 'multi', 'department']"
-            />
+            <label class="text-sm font-medium">
+              Nhân viên <span class="text-rose-500">*</span>
+              <span v-if="contractEmployeeIds.length > 1" class="ml-2 text-xs font-normal text-amber-700">
+                {{ contractEmployeeIds.length }} NV — ký {{ contractEmployeeIds.length }} HĐ cùng điều khoản
+              </span>
+            </label>
+
+            <!-- Placeholder khi chưa chọn công ty -->
+            <div v-if="!formCompanyId" class="hcm-input mt-1 bg-slate-50 text-slate-400 text-sm cursor-not-allowed">
+              Chọn công ty trước
+            </div>
+
+            <!-- Loading -->
+            <div v-else-if="loadingFormEmployees" class="hcm-input mt-1 bg-slate-50 text-slate-400 text-sm">
+              Đang tải danh sách nhân viên...
+            </div>
+
+            <!-- Dropdown multi-checkbox -->
+            <div v-else class="relative mt-1">
+              <!-- Trigger -->
+              <div
+                class="hcm-input min-h-[42px] cursor-pointer flex flex-wrap gap-1.5 items-center pr-8"
+                @click="empDropdownOpen = !empDropdownOpen"
+              >
+                <span v-if="!contractEmployeeIds.length" class="text-slate-400 text-sm select-none">
+                  -- Chọn nhân viên (có thể chọn nhiều) --
+                </span>
+                <span
+                  v-for="id in contractEmployeeIds"
+                  :key="id"
+                  class="inline-flex items-center gap-1 bg-primary-100 text-primary-700 text-xs px-2 py-0.5 rounded-full font-medium"
+                >
+                  {{ formEmployees.find(e => e.id === id)?.full_name || id }}
+                  <button
+                    type="button"
+                    class="hover:text-rose-600 leading-none font-bold"
+                    @click.stop="contractEmployeeIds = contractEmployeeIds.filter(x => x !== id)"
+                  >×</button>
+                </span>
+                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none select-none">▾</span>
+              </div>
+
+              <!-- Backdrop -->
+              <div v-if="empDropdownOpen" class="fixed inset-0 z-40" @click="empDropdownOpen = false" />
+
+              <!-- Panel -->
+              <div v-if="empDropdownOpen" class="absolute z-50 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl mt-1">
+                <!-- Search -->
+                <div class="p-2 border-b border-slate-100">
+                  <input
+                    v-model="empSearch"
+                    class="hcm-input text-sm"
+                    placeholder="Tìm tên hoặc mã NV..."
+                    @click.stop
+                  />
+                </div>
+                <!-- Actions -->
+                <div class="flex items-center gap-3 px-3 py-1.5 border-b border-slate-100 text-xs">
+                  <button type="button" class="text-primary-600 hover:underline" @click.stop="contractEmployeeIds = filteredFormEmployees.map(e => e.id)">Chọn tất cả</button>
+                  <button type="button" class="text-slate-400 hover:underline" @click.stop="contractEmployeeIds = []">Bỏ chọn</button>
+                  <span class="ml-auto text-slate-400">{{ contractEmployeeIds.length }} / {{ formEmployees.length }} đã chọn</span>
+                </div>
+                <!-- List -->
+                <div class="max-h-56 overflow-y-auto">
+                  <label
+                    v-for="e in filteredFormEmployees"
+                    :key="e.id"
+                    class="flex items-center gap-3 px-3 py-2 hover:bg-primary-50 cursor-pointer select-none border-b border-slate-50 last:border-b-0"
+                    @click.stop
+                  >
+                    <input
+                      type="checkbox"
+                      :value="e.id"
+                      v-model="contractEmployeeIds"
+                      class="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium truncate">{{ e.full_name }}</p>
+                      <p class="text-xs text-slate-400">{{ e.employee_code }} · {{ e.department?.name || e.position?.name || '' }}</p>
+                    </div>
+                  </label>
+                  <p v-if="!filteredFormEmployees.length" class="text-center text-xs text-slate-400 py-5">
+                    Không tìm thấy nhân viên
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
           <div v-if="!isBulkContract">
             <label class="text-sm font-medium">Số hợp đồng *</label>
@@ -208,7 +294,7 @@
             <label class="text-sm font-medium">Ghi chú HĐ</label>
             <textarea v-model="form.notes" class="hcm-input mt-1 w-full" rows="2" />
           </div>
-          <div class="sm:col-span-2" v-if="editing">
+          <div class="sm:col-span-2">
             <label class="text-sm font-medium">File hợp đồng (PDF/DOC)</label>
             <input type="file" accept=".pdf,.doc,.docx" class="mt-1 text-sm" @change="onContractFile" />
           </div>
@@ -225,7 +311,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, reactive, computed } from 'vue';
+import { onMounted, ref, reactive, computed, watch } from 'vue';
 import api from '../../api/client';
 import UiPageHeader from '../../components/ui/UiPageHeader.vue';
 import UiBadge from '../../components/ui/UiBadge.vue';
@@ -234,21 +320,28 @@ import UiSearchInput from '../../components/ui/UiSearchInput.vue';
 import UiOrgScopeFilters from '../../components/ui/UiOrgScopeFilters.vue';
 import UiComplianceAlertPanel from '../../components/ui/UiComplianceAlertPanel.vue';
 import UiModal from '../../components/ui/UiModal.vue';
-import EmployeeTargetPicker from '../../components/hr/EmployeeTargetPicker.vue';
 import { extractItems } from '../../composables/usePagination';
 import { useOrgScopeFilters } from '../../composables/useOrgScopeFilters';
 import { useFormat } from '../../composables/useFormat';
 import { useFileDownload } from '../../composables/useFileDownload';
 import { useToast } from '../../composables/useToast';
+import { useAppStore } from '../../stores/app';
 
 const { money, date } = useFormat();
 const toast = useToast();
 const { downloadApiGet } = useFileDownload();
+const appStore = useAppStore();
 
 const contracts = ref([]);
-const employees = ref([]);
+const employees = ref([]);      // dùng cho bảng danh sách (page-level)
+const formEmployees = ref([]);  // dùng riêng trong form, lọc theo công ty
+const formDepartments = ref([]); // phòng ban theo công ty đã chọn trong form
+const formCompanyId = ref(null);
+const loadingFormEmployees = ref(false);
 const search = ref('');
 const scope = useOrgScopeFilters({ includeDepartment: true });
+// Destructure ra top-level — Vue chỉ auto-unwrap Ref ở top-level, không qua scope.xxx
+const { filterBranchId, filterDepartmentId, branches, filteredDepartments, showCompanyPicker, singleBranchMode } = scope;
 const pagination = reactive({ currentPage: 1, lastPage: 1, total: 0 });
 const complianceAlerts = ref([]);
 
@@ -276,11 +369,18 @@ const showForm = ref(false);
 const editing = ref(null);
 const saving = ref(false);
 const contractFile = ref(null);
-const contractTargetMode = ref('single');
 const contractEmployeeIds = ref([]);
-const contractDepartmentId = ref('');
 const contractNumberPrefix = ref('');
-const contractPickerKey = ref(0);
+const empDropdownOpen = ref(false);
+const empSearch = ref('');
+
+const filteredFormEmployees = computed(() => {
+  const q = empSearch.value.trim().toLowerCase();
+  if (!q) return formEmployees.value;
+  return formEmployees.value.filter(
+    (e) => e.full_name?.toLowerCase().includes(q) || e.employee_code?.toLowerCase().includes(q),
+  );
+});
 
 const emptyForm = () => ({
   employee_id: null,
@@ -310,29 +410,37 @@ const emptyForm = () => ({
 const form = ref(emptyForm());
 
 const isBulkContract = computed(() => {
-  if (editing.value) {
-    return false;
-  }
-  if (contractTargetMode.value === 'department') {
-    return true;
-  }
-  if (contractTargetMode.value === 'multi') {
-    return contractEmployeeIds.value.length > 1;
-  }
-  return false;
+  if (editing.value) return false;
+  return contractEmployeeIds.value.length > 1;
 });
 
 function resolveContractEmployeeIds() {
-  if (contractTargetMode.value === 'department' && contractDepartmentId.value) {
-    const deptId = Number(contractDepartmentId.value);
-    return employees.value
-      .filter((e) => Number(e.department_id) === deptId)
-      .map((e) => Number(e.id));
+  if (editing.value) return form.value.employee_id ? [Number(form.value.employee_id)] : [];
+  return contractEmployeeIds.value.map((id) => Number(id));
+}
+
+async function loadFormEmployees(companyId) {
+  if (!companyId) {
+    formEmployees.value = [];
+    formDepartments.value = [];
+    return;
   }
-  if (contractTargetMode.value === 'multi') {
-    return contractEmployeeIds.value.map((id) => Number(id));
+  loadingFormEmployees.value = true;
+  try {
+    const [empRes, deptRes] = await Promise.all([
+      api.get('/employees', {
+        params: { per_page: 500, employment_status: 'active', company_id: companyId },
+      }),
+      api.get('/departments', { params: { company_id: companyId } }),
+    ]);
+    formEmployees.value = extractItems(empRes.data);
+    formDepartments.value = extractItems(deptRes.data).filter((d) => d.name?.trim());
+  } catch {
+    formEmployees.value = [];
+    formDepartments.value = [];
+  } finally {
+    loadingFormEmployees.value = false;
   }
-  return form.value.employee_id ? [Number(form.value.employee_id)] : [];
 }
 
 function label(map, key) {
@@ -378,34 +486,66 @@ async function load(page = 1) {
   }
 }
 
+function generateContractNumber(empId, startDate) {
+  const emp = formEmployees.value.find((e) => e.id === Number(empId));
+  if (!emp) return '';
+  const d = (startDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+  return `HD-${emp.employee_code}-${d}`;
+}
+
 function openForm(c = null) {
   editing.value = c;
   contractFile.value = null;
-  contractTargetMode.value = 'single';
   contractEmployeeIds.value = [];
-  contractDepartmentId.value = '';
   contractNumberPrefix.value = '';
-  contractPickerKey.value += 1;
+  empDropdownOpen.value = false;
+  empSearch.value = '';
+  formEmployees.value = [];
+  formDepartments.value = [];
   form.value = c ? { ...emptyForm(), ...c } : emptyForm();
-  if (!c && employees.value[0] && !form.value.employee_id) {
-    form.value.employee_id = employees.value[0].id;
+  if (c?.employee?.company_id) {
+    formCompanyId.value = c.employee.company_id;
+    loadFormEmployees(c.employee.company_id);
+  } else {
+    formCompanyId.value = null;
   }
   showForm.value = true;
 }
+
+// Gọi khi user tự chọn công ty từ dropdown (không dùng watch để tránh double-load)
+function onFormCompanyChange() {
+  form.value.employee_id = null;
+  contractEmployeeIds.value = [];
+  empSearch.value = '';
+  loadFormEmployees(formCompanyId.value);
+}
+
+// Khi chọn đúng 1 NV → auto-fill employee_id + số HĐ
+watch(contractEmployeeIds, (ids) => {
+  if (editing.value) return;
+  if (ids.length === 1) {
+    form.value.employee_id = ids[0];
+    form.value.contract_number = generateContractNumber(ids[0], form.value.start_date);
+  } else {
+    form.value.employee_id = null;
+    if (ids.length === 0) form.value.contract_number = '';
+  }
+});
+
+// Khi đổi ngày bắt đầu → cập nhật số HĐ nếu đang chọn đúng 1 NV
+watch(() => form.value.start_date, (startDate) => {
+  if (editing.value || contractEmployeeIds.value.length !== 1) return;
+  form.value.contract_number = generateContractNumber(contractEmployeeIds.value[0], startDate);
+});
 
 function onContractFile(e) {
   contractFile.value = e.target.files?.[0] || null;
 }
 
 async function save() {
-  const employeeIds = editing.value ? [Number(form.value.employee_id)] : resolveContractEmployeeIds();
+  const employeeIds = resolveContractEmployeeIds();
   if (!employeeIds.length) {
-    toast.show(
-      contractTargetMode.value === 'department'
-        ? 'Phòng ban không có nhân viên trong danh sách'
-        : 'Vui lòng chọn ít nhất một nhân viên',
-      'error',
-    );
+    toast.show('Vui lòng chọn ít nhất một nhân viên', 'error');
     return;
   }
 

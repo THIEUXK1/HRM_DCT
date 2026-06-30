@@ -23,7 +23,7 @@
         :branches="branches"
         :filtered-departments="filteredDepartments"
         @company-change="onScopeCompanyChange"
-        @change="applyScopeFilters"
+        @change="applyScopeFiltersUnlessCompanyChanging"
         @reset="resetScopeFilters"
       />
       <div class="flex items-center gap-3">
@@ -118,7 +118,7 @@
     <UiModal v-model="showForm" :title="editing ? 'Sửa nhân viên' : 'Thêm nhân viên'" wide>
       <form class="space-y-4" @submit.prevent="save">
 
-        <!-- Tổ chức — chọn trước để lấy mã NV và cascade phòng ban/chức danh -->
+        <!-- 1. Tổ chức -->
         <div>
           <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Tổ chức</p>
           <div class="grid grid-cols-2 gap-3">
@@ -150,10 +150,31 @@
                 <option v-for="p in formPositions" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </div>
+            <div>
+              <label class="text-sm font-medium">Quản lý trực tiếp</label>
+              <input v-model="form.manager_id" type="number" class="hcm-input mt-1" placeholder="ID nhân viên quản lý" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Nhóm nghỉ phép</label>
+              <input v-model="form.leave_entitlement_group_id" type="number" class="hcm-input mt-1" placeholder="ID nhóm nghỉ phép" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Số ngày nghỉ phép (tùy chỉnh)</label>
+              <input v-model="form.annual_leave_days_override" type="number" min="0" max="60" step="0.5" class="hcm-input mt-1" placeholder="Để trống = theo nhóm" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Nguồn dữ liệu</label>
+              <select v-model="form.source_company" class="hcm-input mt-1">
+                <option value="">-- Nhập thủ công --</option>
+                <option value="BPVN">BPVN</option>
+                <option value="PFVN">PFVN</option>
+                <option value="MEGA">MEGA</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <!-- Thông tin cơ bản -->
+        <!-- 2. Thông tin cơ bản -->
         <div class="border-t pt-3">
           <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Thông tin cơ bản</p>
           <div class="grid grid-cols-2 gap-3">
@@ -162,8 +183,13 @@
               <input v-model="form.employee_code" class="hcm-input mt-1" placeholder="VD: V260001" />
             </div>
             <div>
-              <label class="text-sm font-medium">Email</label>
-              <input v-model="form.email" type="email" class="hcm-input mt-1" />
+              <label class="text-sm font-medium">Giới tính</label>
+              <select v-model="form.gender" class="hcm-input mt-1">
+                <option value="">-- Chọn --</option>
+                <option value="male">Nam</option>
+                <option value="female">Nữ</option>
+                <option value="other">Khác</option>
+              </select>
             </div>
             <div class="col-span-2">
               <label class="text-sm font-medium">Họ và tên <span class="text-rose-500">*</span></label>
@@ -175,12 +201,63 @@
             </div>
             <div>
               <label class="text-sm font-medium">Họ tên gốc (song ngữ)</label>
-              <input v-model="form.full_name_raw" class="hcm-input mt-1 bg-slate-50" placeholder="Tự điền từ họ tên + tiếng Trung" readonly />
+              <input v-model="form.full_name_raw" class="hcm-input mt-1 bg-slate-50" readonly />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Ngày sinh</label>
+              <input v-model="form.date_of_birth" type="date" class="hcm-input mt-1" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Nơi sinh</label>
+              <input v-model="form.place_of_birth" class="hcm-input mt-1" placeholder="VD: Hà Nội" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Quê quán</label>
+              <input v-model="form.origin_place" class="hcm-input mt-1" placeholder="VD: Nghệ An" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Quốc tịch</label>
+              <input v-model="form.nationality" class="hcm-input mt-1" placeholder="VD: VN" maxlength="10" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Dân tộc</label>
+              <input v-model="form.ethnicity" class="hcm-input mt-1" placeholder="VD: Kinh" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Tôn giáo</label>
+              <input v-model="form.religion" class="hcm-input mt-1" placeholder="VD: Không" />
             </div>
           </div>
         </div>
 
-        <!-- Trạng thái & Thời gian -->
+        <!-- 3. Liên lạc -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Liên lạc</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-medium">Email cá nhân</label>
+              <input v-model="form.email" type="email" class="hcm-input mt-1" placeholder="email@gmail.com" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Email cá nhân (phụ)</label>
+              <input v-model="form.personal_email" type="email" class="hcm-input mt-1" placeholder="email@gmail.com" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Email công việc</label>
+              <input v-model="form.work_email" type="email" class="hcm-input mt-1" placeholder="name@company.com" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">SĐT cá nhân</label>
+              <input v-model="form.phone" class="hcm-input mt-1" placeholder="0912345678" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">SĐT công việc</label>
+              <input v-model="form.work_phone" class="hcm-input mt-1" placeholder="0912345678" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Trạng thái & Thời gian -->
         <div class="border-t pt-3">
           <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Trạng thái & Thời gian</p>
           <div class="grid grid-cols-2 gap-3">
@@ -197,35 +274,186 @@
               </select>
             </div>
             <div>
-              <label class="text-sm font-medium">Nguồn dữ liệu</label>
-              <select v-model="form.source_company" class="hcm-input mt-1">
-                <option value="">-- Nhập thủ công --</option>
-                <option value="BPVN">BPVN</option>
-                <option value="PFVN">PFVN</option>
-                <option value="MEGA">MEGA</option>
+              <label class="text-sm font-medium">Loại hợp đồng</label>
+              <select v-model="form.employment_type" class="hcm-input mt-1">
+                <option value="">-- Chọn --</option>
+                <option value="full_time">Toàn thời gian</option>
+                <option value="part_time">Bán thời gian</option>
+                <option value="contractor">Hợp đồng</option>
+                <option value="intern">Thực tập</option>
               </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Địa điểm làm việc</label>
+              <input v-model="form.work_location" class="hcm-input mt-1" placeholder="VD: Văn phòng HCM" />
             </div>
             <div>
               <label class="text-sm font-medium">Ngày vào làm</label>
               <input v-model="form.hire_date" type="date" class="hcm-input mt-1" />
             </div>
+            <div>
+              <label class="text-sm font-medium">Ngày kết thúc thử việc</label>
+              <input v-model="form.probation_end_date" type="date" class="hcm-input mt-1" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Ngày chính thức</label>
+              <input v-model="form.official_start_date" type="date" class="hcm-input mt-1" />
+            </div>
             <div v-if="form.employment_status === 'terminated' || form.employment_status === 'resigned'">
               <label class="text-sm font-medium">Ngày nghỉ việc</label>
               <input v-model="form.termination_date" type="date" class="hcm-input mt-1" />
             </div>
+            <div v-if="form.employment_status === 'terminated' || form.employment_status === 'resigned'" class="col-span-2">
+              <label class="text-sm font-medium">Lý do nghỉ việc</label>
+              <input v-model="form.termination_reason" class="hcm-input mt-1" placeholder="Nhập lý do nghỉ việc" maxlength="500" />
+            </div>
           </div>
         </div>
 
-        <!-- Ngân hàng -->
+        <!-- 5. Giấy tờ tùy thân -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Giấy tờ tùy thân</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-medium">Số CCCD / CMND</label>
+              <input v-model="form.national_id" class="hcm-input mt-1" placeholder="9–12 chữ số" maxlength="12" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Số CMND cũ</label>
+              <input v-model="form.old_national_id" class="hcm-input mt-1" placeholder="CMND 9 số cũ" maxlength="20" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Loại giấy tờ</label>
+              <select v-model="form.id_card_type" class="hcm-input mt-1">
+                <option value="">-- Chọn --</option>
+                <option value="cccd">CCCD (Căn cước công dân)</option>
+                <option value="cmnd">CMND (Chứng minh nhân dân)</option>
+                <option value="passport">Hộ chiếu</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm font-medium">Ngày cấp</label>
+              <input v-model="form.id_card_issue_date" type="date" class="hcm-input mt-1" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Nơi cấp</label>
+              <input v-model="form.id_card_issue_place" class="hcm-input mt-1" placeholder="VD: CA TP.HCM" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Ngày hết hạn</label>
+              <input v-model="form.id_card_expiry_date" type="date" class="hcm-input mt-1" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Mã số thuế cá nhân</label>
+              <input v-model="form.tax_code" class="hcm-input mt-1" placeholder="10 hoặc 13 chữ số" maxlength="14" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Bảo hiểm & Thuế -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Bảo hiểm & Thuế</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-medium">Số sổ BHXH</label>
+              <input v-model="form.social_insurance_number" class="hcm-input mt-1" placeholder="Số sổ BHXH" maxlength="20" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Số thẻ BHYT</label>
+              <input v-model="form.health_insurance_card" class="hcm-input mt-1" placeholder="Số thẻ BHYT" maxlength="50" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Ngày tham gia BHXH</label>
+              <input v-model="form.bhxh_start_date" type="date" class="hcm-input mt-1" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Ngày dừng BHXH</label>
+              <input v-model="form.bhxh_stop_date" type="date" class="hcm-input mt-1" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Lương đóng bảo hiểm (VNĐ)</label>
+              <input v-model="form.insurance_salary" type="number" min="0" class="hcm-input mt-1" placeholder="VD: 4680000" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Số người phụ thuộc (PIT)</label>
+              <input v-model="form.pit_dependents_count" type="number" min="0" max="20" class="hcm-input mt-1" placeholder="0" />
+            </div>
+            <div class="flex items-center gap-2 mt-2">
+              <input v-model="form.union_member" type="checkbox" id="union_member" class="rounded" />
+              <label for="union_member" class="text-sm font-medium cursor-pointer">Đoàn viên công đoàn</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7. Ngân hàng -->
         <div class="border-t pt-3">
           <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Ngân hàng</p>
-          <div>
-            <label class="text-sm font-medium">Tên ngân hàng</label>
-            <input v-model="form.bank_name" class="hcm-input mt-1" placeholder="VD: Vietcombank" />
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm font-medium">Tên ngân hàng</label>
+              <input v-model="form.bank_name" class="hcm-input mt-1" placeholder="VD: Vietcombank" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Số tài khoản</label>
+              <input v-model="form.bank_account" class="hcm-input mt-1" placeholder="Số tài khoản ngân hàng" maxlength="30" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Tên chủ tài khoản</label>
+              <input v-model="form.bank_account_name" class="hcm-input mt-1" placeholder="VD: NGUYEN VAN AN" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Chi nhánh ngân hàng</label>
+              <input v-model="form.bank_branch" class="hcm-input mt-1" placeholder="VD: VCB TP.HCM" />
+            </div>
           </div>
         </div>
 
-        <div class="flex justify-end gap-2 pt-2">
+        <!-- 8. Địa chỉ -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Địa chỉ</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="col-span-2">
+              <label class="text-sm font-medium">Địa chỉ hiện tại</label>
+              <input v-model="form.address" class="hcm-input mt-1" placeholder="Số nhà, đường, phường/xã..." maxlength="500" />
+            </div>
+            <div class="col-span-2">
+              <label class="text-sm font-medium">Địa chỉ thường trú</label>
+              <input v-model="form.permanent_address" class="hcm-input mt-1" placeholder="Địa chỉ theo CCCD/CMND" maxlength="500" />
+            </div>
+            <div class="col-span-2">
+              <label class="text-sm font-medium">Địa chỉ tạm trú</label>
+              <input v-model="form.temporary_address" class="hcm-input mt-1" placeholder="Địa chỉ tạm trú (nếu có)" maxlength="500" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Phường / Xã</label>
+              <input v-model="form.ward" class="hcm-input mt-1" placeholder="VD: Phường Bến Nghé" maxlength="100" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Quận / Huyện</label>
+              <input v-model="form.district" class="hcm-input mt-1" placeholder="VD: Quận 1" maxlength="100" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Tỉnh / Thành phố</label>
+              <input v-model="form.province" class="hcm-input mt-1" placeholder="VD: TP. Hồ Chí Minh" maxlength="100" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Thành phố (tổng quát)</label>
+              <input v-model="form.city" class="hcm-input mt-1" placeholder="VD: Ho Chi Minh City" maxlength="255" />
+            </div>
+            <div>
+              <label class="text-sm font-medium">Quốc gia</label>
+              <input v-model="form.country" class="hcm-input mt-1" placeholder="VD: Vietnam" maxlength="255" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 9. Ghi chú -->
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Ghi chú</p>
+          <textarea v-model="form.note" class="hcm-input mt-1 w-full" rows="3" placeholder="Ghi chú nội bộ về nhân viên..."></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t">
           <button type="button" class="hcm-btn-secondary" @click="showForm = false">Hủy</button>
           <button type="submit" class="hcm-btn-primary" :disabled="saving">{{ saving ? 'Đang lưu...' : 'Lưu' }}</button>
         </div>
@@ -454,14 +682,43 @@ const { downloadApiGet } = useFileDownload();
 
 function emptyForm() {
   return {
+    // Tổ chức
     company_id: null, branch_id: null, department_id: null, position_id: null,
+    manager_id: null, leave_entitlement_group_id: null, annual_leave_days_override: null,
+    source_company: '',
+    // Thông tin cơ bản
     employee_code: '',
-    full_name: '', chinese_name: '', full_name_raw: '',
-    first_name: '', last_name: '',
-    email: '',
-    employment_status: 'active', is_active: true,
-    hire_date: null, termination_date: null,
-    bank_name: '', source_company: '',
+    full_name: '', first_name: '', last_name: '',
+    chinese_name: '', full_name_raw: '',
+    gender: '',
+    date_of_birth: null, place_of_birth: '', origin_place: '',
+    nationality: '', ethnicity: '', religion: '',
+    // Liên lạc
+    email: '', personal_email: '', work_email: '',
+    phone: '', work_phone: '',
+    // Trạng thái & Thời gian
+    employment_status: 'active', employment_type: '',
+    work_location: '',
+    hire_date: null, probation_end_date: null,
+    official_start_date: null, termination_date: null, termination_reason: '',
+    is_active: true,
+    // Giấy tờ
+    national_id: '', old_national_id: '',
+    id_card_type: '', id_card_issue_date: null,
+    id_card_issue_place: '', id_card_expiry_date: null,
+    tax_code: '',
+    // Bảo hiểm & Thuế
+    social_insurance_number: '', health_insurance_card: '',
+    bhxh_start_date: null, bhxh_stop_date: null,
+    insurance_salary: null, pit_dependents_count: null,
+    union_member: false,
+    // Ngân hàng
+    bank_name: '', bank_account: '', bank_account_name: '', bank_branch: '',
+    // Địa chỉ
+    address: '', permanent_address: '', temporary_address: '',
+    ward: '', district: '', province: '', city: '', country: '',
+    // Ghi chú
+    note: '',
   };
 }
 
@@ -491,9 +748,23 @@ function resetScopeFilters() {
   applyScopeFilters();
 }
 
-async function onScopeCompanyChange(companyId) {
-  await scope.onCompanyChange(companyId);
+// Guard: khi đổi công ty, @change bắn đồng thời với @company-change nhưng auth chưa cập nhật.
+// Flag này chặn @change fire sớm để chỉ có 1 reload sau khi auth đã sẵn sàng.
+let _companyChanging = false;
+
+function applyScopeFiltersUnlessCompanyChanging() {
+  if (_companyChanging) return;
   applyScopeFilters();
+}
+
+async function onScopeCompanyChange(companyId) {
+  _companyChanging = true;
+  try {
+    await scope.onCompanyChange(companyId);
+    applyScopeFilters();
+  } finally {
+    _companyChanging = false;
+  }
 }
 
 function openCreate() {

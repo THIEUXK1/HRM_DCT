@@ -64,7 +64,8 @@ class UserController extends ApiController
 
             ->with(['roles', 'companies:id,name,code', 'employee:id,full_name,employee_code,company_id'])
 
-            ->select(['id', 'name', 'email', 'tenant_id', 'default_company_id', 'employee_id'])
+            ->select(['id', 'name', 'email', 'tenant_id', 'default_company_id', 'employee_id',
+                      'must_change_password', 'password_changed_at'])
 
             ->orderBy('name');
 
@@ -343,6 +344,33 @@ class UserController extends ApiController
     }
 
 
+
+    public function resetPassword(Request $request, User $user): JsonResponse
+    {
+        $actor = auth()->user();
+        abort_unless($actor && $actor->isTenantAdmin(), 403, 'Chỉ admin mới được đặt lại mật khẩu người khác.');
+
+        $data = $request->validate([
+            'password'              => ['required', 'string', 'min:8', 'confirmed'],
+            'password_confirmation' => ['required', 'string'],
+            'must_change_password'  => ['boolean'],
+        ]);
+
+        $user->password             = $data['password'];
+        $user->must_change_password = $data['must_change_password'] ?? true;
+        $user->password_changed_at  = null;
+        $user->save();
+
+        AuditLogger::log(
+            'password_reset',
+            $user,
+            null,
+            'security',
+            "Admin đặt lại mật khẩu cho {$user->email}" . ($user->must_change_password ? ' (bắt buộc đổi lại)' : ''),
+        );
+
+        return $this->success(['message' => 'Đã đặt lại mật khẩu thành công.']);
+    }
 
     public function assignableRoles(): JsonResponse
 

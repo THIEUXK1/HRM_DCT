@@ -199,7 +199,7 @@ function loadOpenGroups() {
 }
 
 // Groups that are open
-const openGroups = ref(new Set(loadOpenGroups() ?? ['top', 'portal', 'hr-core', 'tc-leave', 'payroll-ins', 'perf', 'recruit', 'workflow']));
+const openGroups = ref(new Set(loadOpenGroups() ?? ['top', 'portal', 'hr-core', 'tc-leave', 'payroll-ins', 'perf', 'recruit', 'workflow', 'sysadmin']));
 
 function toggleGroup(id) {
   if (openGroups.value.has(id)) {
@@ -313,9 +313,19 @@ const menuGroups = [
       { name: 'audit-log', to: { name: 'audit-log' }, label: 'Nhật ký kiểm toán', icon: '🛡️', perm: 'audit_logs.view' },
     ],
   },
+  {
+    id: 'sysadmin',
+    label: 'Quản trị hệ thống',
+    icon: '🔐',
+    items: [
+      { name: 'user-management', to: { name: 'user-management' }, label: 'Quản lý tài khoản', icon: '🔑', role: ['admin'] },
+    ],
+  },
 ];
 
 function canSeeMenuItem(item) {
+  // Admin thấy tất cả menu item, không lọc bất kỳ perm/role nào
+  if (auth.roles?.includes('admin')) return true;
   if (item.permsAny && !canAny(item.permsAny)) return false;
   if (item.perm && !can(item.perm)) return false;
   if (item.role && !hasAnyRole(item.role)) return false;

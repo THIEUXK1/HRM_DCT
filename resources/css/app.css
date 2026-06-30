@@ -22,6 +22,35 @@
     }
 }
 
+/* Scrollbar mờ cho sidebar và main content */
+.overflow-y-auto,
+.overflow-x-auto {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.3);
+    border-radius: 99px;
+}
+
+.overflow-y-auto:hover::-webkit-scrollbar-thumb,
+.overflow-x-auto:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.55);
+}
+
 @layer components {
     .hcm-card {
         @apply bg-white rounded-xl border border-slate-200/80 shadow-sm;
